@@ -8,11 +8,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install edge-tts supabase
-      - run: python skills/voice_sync_avatar.py
+      - name: Install dependencies
+        run: pip install -q gTTS imageio-ffmpeg requests
+      - name: Run voice_sync_avatar
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python skills/voice_sync_avatar.py
       - name: Send Telegram Notification
         if: always()
         shell: python
