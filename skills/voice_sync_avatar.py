@@ -1,31 +1,18 @@
-import os, glob, subprocess
-from gtts import gTTS
-import imageio_ffmpeg
-from PIL import Image
+import os
+from pathlib import Path
+import subprocess
 
-# Ensure assets directory exists
-os.makedirs("assets", exist_ok=True)
+def find_image():
+    root_dir = Path('.').resolve()
+    for file in root_dir.iterdir():
+        if file.is_file() and file.suffix.lower() in ['.jpg', '.jpeg', '.png']:
+            return str(file)
+    return None
 
-# Path to avatar
-avatar_path = "assets/avatar.jpg"
+image_path = find_image()
+if not image_path:
+    print("Error: No image file found in root directory.")
+    exit(1)
 
-# Create avatar if not exists
-if not os.path.exists(avatar_path):
-    img = Image.new("RGB", (1080, 1920), (100, 100, 100))
-    img.save(avatar_path)
-
-ff = imageio_ffmpeg.get_ffmpeg_exe()
-gTTS("Hello Boss! Avatar system is online and moving.", lang="en").save("v.mp3")
-
-# Zoompan filter: zoom in slowly
-# d=250 (duration in frames), z='min(zoom+0.0015,1.2)'
-zoompan_filter = "zoompan=z='min(zoom+0.0015,1.2)':d=250:s=1080x1920:fps=25"
-
-subprocess.run([
-    ff, "-y", 
-    "-loop", "1", "-i", avatar_path, 
-    "-i", "v.mp3", 
-    "-vf", f"{zoompan_filter},format=yuv420p", 
-    "-c:v", "libx264", "-pix_fmt", "yuv420p", 
-    "-c:a", "aac", "-shortest", "out.mp4"
-], check=True)
+print(f"Using image: {image_path}")
+# Здесь будет логика ffmpeg с zoompan, использующая image_path
