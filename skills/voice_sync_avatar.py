@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 import subprocess
 from gradio_client import Client
-from gtts import gTTS
 
 def find_image():
     root_dir = Path('.').resolve()
@@ -26,17 +25,16 @@ if not image_path:
     exit(1)
 
 if not audio_path:
-    print("No audio found, generating voice.mp3 with gTTS...")
-    tts = gTTS(text="Привет! Я твой цифровой аватар, и теперь я умею говорить как живой человек.", lang='ru')
-    tts.save("voice.mp3")
+    print("No audio found, generating voice.mp3 with edge-tts...")
+    subprocess.run(['edge-tts', '--voice', 'ru-RU-SvetlanaNeural', '--text', 'Привет! Я твой цифровой аватар, и теперь я говорю как живой человек.', '--write-media', 'voice.mp3'], check=True)
     audio_path = "voice.mp3"
 
 hf_token = os.environ.get("HUGGINGFACE_API_TOKEN")
 spaces = [
-    "KwaiVGI/LivePortrait",
     "TMElyralab/MuseTalk",
+    "vinthony/SadTalker",
     "fffiloni/EchoMimic",
-    "vinthony/SadTalker"
+    "KwaiVGI/LivePortrait"
 ]
 
 success = False
@@ -46,49 +44,15 @@ for space in spaces:
     try:
         print(f"Trying to connect to Space: {space}...")
         client = Client(space, token=hf_token)
-        
-        # Автоматический просмотр API для выбора метода
         api_info = client.view_api(return_format="dict")
-        print(f"API info for {space}: {list(api_info.get('named_endpoints', {}).keys())}")
         
-        # Попытка вызвать первый доступный эндпоинт или стандартный
+        # Попытка найти подходящий эндпоинт
         endpoints = list(api_info.get('named_endpoints', {}).keys())
         api_name = endpoints[0] if endpoints else None
         
-        # Пробуем предсказание в зависимости от пространства
-        if "LivePortrait" in space:
-            result = client.predict(
-                source_image=image_path,
-                driving_video=audio_path, # Если ожидает видео или аудио
-                api_name=api_name
-            )
-        elif "SadTalker" in space:
-            result = client.predict(
-                source_image=image_path,
-                driven_audio=audio_path,
-                preprocess="full",
-                still_mode=True,
-                use_enhancer=False,
-                batch_size=1,
-                size=512,
-                pose_style=0,
-                facerender="facevid2vid",
-                exp_scale=1.0,
-                use_ref_video=False,
-                ref_video=None,
-                ref_info=None,
-                use_idle_mode=False,
-                length_of_audio=0,
-                api_name=api_name if api_name else "/test"
-            )
-        else:
-            # Универсальный вызов по аналогии
-            result = client.predict(
-                image=image_path,
-                audio=audio_path,
-                api_name=api_name
-            )
-
+        # Вызов (упрощенно для примера, логика подбора может требовать уточнения API)
+        result = client.predict(image_path, audio_path, api_name=api_name)
+        
         video_path = result[0] if isinstance(result, (list, tuple)) else result
         if video_path and Path(video_path).exists():
             print(f"Success with space {space}!")
