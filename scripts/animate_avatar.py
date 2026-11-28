@@ -1,28 +1,33 @@
-import os
-from supabase import create_client
-from PIL import Image
-import requests
+import os, asyncio, edge_tts, subprocess, requests
 
-# Инициализация Supabase
-supabase = create_client(os.environ['SUPABASE_URL'], os.environ['SUPABASE_SERVICE_ROLE_KEY'])
+# Конфигурация
+TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
-def ensure_bucket_exists(bucket_name):
-    try:
-        supabase.storage.get_bucket(bucket_name)
-    except:
-        supabase.storage.create_bucket(bucket_name, {"public": True})
+async def generate_audio(text, output_file):
+    communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
+    await communicate.save(output_file)
 
-def animate_and_upload():
-    ensure_bucket_exists('avatars')
-    # Логика анимации (заглушка для примера)
-    # ...
-    # Проверка файла
-    file_path = 'assets/looks/girl_1/look_1.mp4'
-    if os.path.exists(file_path) and os.path.getsize(file_path) > 100 * 1024:
-        with open(file_path, 'rb') as f:
-            supabase.storage.from_('avatars').upload(path='look_1.mp4', file=f, file_options={"content-type": "video/mp4"})
-    else:
-        raise Exception("Invalid or small video file")
+def run_ffmpeg(video_path, audio_path, output_path):
+    # Наложение аудио на видео
+    cmd = f"ffmpeg -i {video_path} -i {audio_path} -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -shortest {output_path}"
+    subprocess.run(cmd, shell=True, check=True)
+
+def send_to_telegram(video_path):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVideo"
+    with open(video_path, "rb") as f:
+        files = {"video": f}
+        data = {"chat_id": TELEGRAM_CHAT_ID, "caption": "Готовое видео с аватаром"}
+        requests.post(url, files=files, data=data)
+
+async def main():
+    text = "Hello! I am your autonomous AI assistant. The system is updated, and I am now working on full autopilot."
+    await generate_audio(text, "voice.mp3")
+    
+    # Предполагаем, что avatar_1.mp4 уже есть в папке воркера или скачан ранее
+    run_ffmpeg("avatar_1.mp4", "voice.mp3", "output.mp4")
+    
+    send_to_telegram("output.mp4")
 
 if __name__ == "__main__":
-    animate_and_upload()
+    asyncio.run(main())
