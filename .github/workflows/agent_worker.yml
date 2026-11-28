@@ -8,23 +8,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install Pillow supabase requests
-      - run: python scripts/process_images.py
-      - run: python scripts/animate_avatar.py
+      - run: pip install edge-tts supabase
+      - run: python skills/voice_sync_avatar.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          HUGGINGFACE_API_TOKEN: ${{ secrets.HUGGINGFACE_API_TOKEN }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       - name: Send Telegram Notification
         if: always()
+        shell: python
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          JOB_STATUS: ${{ job.status }}
         run: |
-          python -c "
-          import os, requests, json
-          status = '${{ job.status }}'
-          msg = '✅ Успех!' if status == 'success' else '❌ Ошибка: ' + status
-          requests.post(f'https://api.telegram.org/bot{os.environ[\"TELEGRAM_BOT_TOKEN\"]}/sendMessage', 
-                        json={'chat_id': os.environ['TELEGRAM_CHAT_ID'], 'text': msg})
-          "
+          import os, json, urllib.request
+          token = os.environ["TELEGRAM_BOT_TOKEN"]
+          chat_id = os.environ["TELEGRAM_CHAT_ID"]
+          status = os.environ["JOB_STATUS"]
+          data = json.dumps({"chat_id": chat_id, "text": f"Воркер завершён. Статус: {status}"}).encode("utf-8")
+          req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=data, headers={"Content-Type": "application/json"})
+          urllib.request.urlopen(req)
