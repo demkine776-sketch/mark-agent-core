@@ -22,8 +22,9 @@ jobs:
           C: ${{secrets.TELEGRAM_CHAT_ID}}
         run: |
           if [ -f out.mp4 ]; then
-            curl -s -X POST https://api.telegram.org/bot$T/sendVideo -F chat_id=$C -F video=@out.mp4
+            CAPTION=$(tail -n 15 status.txt 2>/dev/null || tail -n 15 run.log | cut -c 1-900)
+            curl -s -X POST https://api.telegram.org/bot$T/sendVideo -F chat_id=$C -F video=@out.mp4 --data-urlencode "caption=$CAPTION"
           else
-            ERROR_LOG=$(tail -n 15 run.log)
+            ERROR_LOG=$(tail -n 15 status.txt 2>/dev/null || tail -n 15 run.log | cut -c 1-900)
             curl -s -X POST https://api.telegram.org/bot$T/sendMessage -d chat_id=$C --data-urlencode "text=Worker failed: out.mp4 not found. Log: $ERROR_LOG"
           fi
