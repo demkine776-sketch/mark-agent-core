@@ -9,7 +9,9 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install dependencies
-        run: pip install -q gTTS imageio-ffmpeg requests
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install -q gTTS imageio-ffmpeg requests
       - name: Run voice_sync_avatar
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -24,9 +26,13 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         run: |
           import os, json, urllib.request
-          token = os.environ["TELEGRAM_BOT_TOKEN"]
-          chat_id = os.environ["TELEGRAM_CHAT_ID"]
-          status = os.environ["JOB_STATUS"]
-          data = json.dumps({"chat_id": chat_id, "text": f"Воркер завершён. Статус: {status}"}).encode("utf-8")
-          req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=data, headers={"Content-Type": "application/json"})
-          urllib.request.urlopen(req)
+          token = os.environ.get("TELEGRAM_BOT_TOKEN")
+          chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+          status = os.environ.get("JOB_STATUS")
+          if token and chat_id:
+              data = json.dumps({"chat_id": chat_id, "text": f"Воркер завершён. Статус: {status}"}).encode("utf-8")
+              req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=data, headers={"Content-Type": "application/json"})
+              try:
+                  urllib.request.urlopen(req)
+              except Exception:
+                  pass
