@@ -3,7 +3,6 @@ from pathlib import Path
 import subprocess
 
 def find_image():
-    # Ищем в корне репозитория (текущая рабочая директория воркера)
     root_dir = Path('.').resolve()
     for file in root_dir.iterdir():
         if file.is_file() and file.suffix.lower() in ['.jpg', '.jpeg', '.png']:
@@ -17,11 +16,18 @@ if not image_path:
 
 print(f"Using image: {image_path}")
 
-# Пример команды ffmpeg с zoompan
-# zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'
+# Масштабирование 9:16 с обрезкой и плавный zoompan
+vf = (
+    "scale=1080:1920:force_original_aspect_ratio=increase,"
+    "crop=1080:1920,"
+    "setsar=1,"
+    "zoompan=z='min(zoom+0.0015,1.2)':d=250:s=1080x1920:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)',"
+    "format=yuv420p"
+)
+
 cmd = [
     'ffmpeg', '-loop', '1', '-i', image_path,
-    '-vf', "zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)',format=yuv420p",
+    '-vf', vf,
     '-t', '10', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', 'out.mp4', '-y'
 ]
 
