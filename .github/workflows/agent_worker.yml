@@ -9,7 +9,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - run: pip install -q gTTS imageio-ffmpeg Pillow gradio_client
+      - run: pip install -q gradio_client edge-tts
       - env:
           TELEGRAM_BOT_TOKEN: ${{secrets.TELEGRAM_BOT_TOKEN}}
           TELEGRAM_CHAT_ID: ${{secrets.TELEGRAM_CHAT_ID}}
@@ -21,10 +21,9 @@ jobs:
           T: ${{secrets.TELEGRAM_BOT_TOKEN}}
           C: ${{secrets.TELEGRAM_CHAT_ID}}
         run: |
+          echo "CAP=$(head -c 800 status.txt 2>/dev/null || tail -c 800 run.log | tr '\n' ' ')" >> $GITHUB_ENV
           if [ -f out.mp4 ]; then
-            CAPTION=$(tail -n 15 status.txt 2>/dev/null || tail -n 15 run.log | cut -c 1-900)
-            curl -s -X POST https://api.telegram.org/bot$T/sendVideo -F chat_id=$C -F video=@out.mp4 --data-urlencode "caption=$CAPTION"
+            curl -s -X POST https://api.telegram.org/bot$T/sendVideo -F chat_id=$C -F video=@out.mp4 -F caption="$CAP"
           else
-            ERROR_LOG=$(tail -n 15 status.txt 2>/dev/null || tail -n 15 run.log | cut -c 1-900)
-            curl -s -X POST https://api.telegram.org/bot$T/sendMessage -d chat_id=$C --data-urlencode "text=Worker failed: out.mp4 not found. Log: $ERROR_LOG"
+            curl -s -X POST https://api.telegram.org/bot$T/sendMessage -d chat_id=$C -d text="Worker failed: out.mp4 not found. Log: $CAP"
           fi
