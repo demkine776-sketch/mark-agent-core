@@ -8,9 +8,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install -q gTTS imageio-ffmpeg
+      - run: pip install -q gTTS imageio-ffmpeg Pillow
       - env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python skills/voice_sync_avatar.py
+      - name: Send result
+        if: always()
+        env:
+          T: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          C: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -f out.mp4 ]; then
+            curl -s -X POST https://api.telegram.org/bot$T/sendVideo -F chat_id=$C -F video=@out.mp4
+          else
+            curl -s -X POST https://api.telegram.org/bot$T/sendMessage -d chat_id=$C -d text="Worker failed: out.mp4 not found"
+          fi
