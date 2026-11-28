@@ -1,35 +1,79 @@
-import os, asyncio, edge_tts, subprocess
-from supabase import create_client
+import os
+import glob
+import subprocess
+import ast
+import requests
 
-# Конфигурация
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+os.system("pip install -q gTTS requests")
 
-async def generate_audio(text, output_file):
-    communicate = edge_tts.Communicate(text, "ru-RU-SvetlanaNeural")
-    await communicate.save(output_file)
+from gtts import gTTS
 
-def run_lipsync(video_path, audio_path, output_path):
-    # Упрощенный липсинк через FFmpeg (наложение аудио на видео)
-    cmd = f"ffmpeg -i {video_path} -i {audio_path} -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -shortest {output_path}"
-    subprocess.run(cmd, shell=True, check=True)
-
-async def main():
-    text = "Привет! Я твой автономный ИИ-ассистент. Система обновлена, и теперь я работаю полностью на автопилоте"
-    await generate_audio(text, "voice.mp3")
+def main():
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     
-    # Скачивание видео из Supabase
-    with open("input.mp4", "wb") as f:
-        f.write(supabase.storage.from_("avatars").download("avatar_1.mp4"))
-    
-    run_lipsync("input.mp4", "voice.mp3", "test_voice_1.mp4")
-    
-    # Загрузка в Supabase
-    with open("test_voice_1.mp4", "rb") as f:
-        supabase.storage.from_("avatars").upload("test_voice_1.mp4", f.read())
-    
-    print("https://demkine776-sketch.supabase.co/storage/v1/object/public/avatars/test_voice_1.mp4")
+    try:
+        # 1. Озвучка gTTS
+        audio_path = "voice.mp3"
+        tts = gTTS("Hello Boss! Avatar system is online.", lang="en")
+        tts.save(audio_path)
+        
+        # 2. Поиск фото или генерация фона
+        output_video = "output.mp4"
+        images = glob.glob("assets/**/*.*", recursive=True)
+        valid_images = [img for img in images if img.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
+        
+        if valid_images:
+            img_path = valid_images[0]
+            cmd = [
+                "ffmpeg", "-y",
+                "-loop", "1",
+                "-i", img_path,
+                "-i", audio_path,
+                "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+                "-c:v", "libx264",
+                "-tune", "stillimage",
+                "-c:a", "aac",
+                "-pix_fmt", "yuv420p",
+                "-shortest",
+                output_video
+            ]
+        else:
+            cmd = [
+                "ffmpeg", "-y",
+                "-f", "lavfi",
+                "-i", "color=c=blue:s=1080x1920:d=10",
+                "-i", audio_path,
+                "-c:v", "libx264",
+                "-c:a", "aac",
+                "-pix_fmt", "yuv420p",
+                "-shortest",
+                output_video
+            ]
+        
+        subprocess.run(cmd, check=True)
+        
+        # 3. Отправка видео в Telegram
+        if bot_token and chat_id:
+            with open(output_video, "rb") as video_file:
+                requests.post(
+                    f"https://api.telegram.org/bot{bot_token}/sendVideo",
+                    data={"chat_id": chat_id, "caption": "🤖 Avatar System Online!"},
+                    files={"video": video_file}
+                )
+    except Exception as e:
+        error_text = f"Voice sync error: {str(e)}"
+        if bot_token and chat_id:
+            try:
+                requests.post(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                    data={"chat_id": chat_id, "text": error_text}
+                )
+            except Exception:
+                pass
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Проверка ast.parse
+    with open(__file__, "r", encoding="utf-8") as f:
+        ast.parse(f.read())
+    main()
