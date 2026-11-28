@@ -1,33 +1,39 @@
-import os, asyncio, edge_tts, subprocess, requests
+import os
+import ast
+import requests
+import glob
+import subprocess
 
-# Конфигурация
-TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+def run_task():
+    try:
+        # Установка зависимостей
+        subprocess.check_call(["pip", "install", "-q", "edge-tts", "requests"])
 
-async def generate_audio(text, output_file):
-    communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
-    await communicate.save(output_file)
+        # Генерация озвучки
+        text = "Hello Boss! My avatar system is now online and ready to create viral content for YouTube and Instagram."
+        os.system(f'edge-tts --text "{text}" --voice en-US-AriaNeural --write-media voice.mp3')
 
-def run_ffmpeg(video_path, audio_path, output_path):
-    # Наложение аудио на видео
-    cmd = f"ffmpeg -i {video_path} -i {audio_path} -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -shortest {output_path}"
-    subprocess.run(cmd, shell=True, check=True)
+        # Поиск фото или создание фона
+        images = glob.glob("assets/**/*.jpg", recursive=True) + glob.glob("assets/**/*.png", recursive=True)
+        img_path = images[0] if images else "background.png"
+        if not images:
+            os.system('ffmpeg -f lavfi -i color=c=blue:s=1080x1920:d=7 -t 7 background.png')
 
-def send_to_telegram(video_path):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVideo"
-    with open(video_path, "rb") as f:
-        files = {"video": f}
-        data = {"chat_id": TELEGRAM_CHAT_ID, "caption": "Готовое видео с аватаром"}
-        requests.post(url, files=files, data=data)
+        # Сборка видео
+        os.system('ffmpeg -loop 1 -i ' + img_path + ' -i voice.mp3 -vf "zoompan=z=\'min(zoom+0.001,1.1)\':d=125,format=yuv420p" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -t 7 output.mp4 -y')
 
-async def main():
-    text = "Hello! I am your autonomous AI assistant. The system is updated, and I am now working on full autopilot."
-    await generate_audio(text, "voice.mp3")
-    
-    # Предполагаем, что avatar_1.mp4 уже есть в папке воркера или скачан ранее
-    run_ffmpeg("avatar_1.mp4", "voice.mp3", "output.mp4")
-    
-    send_to_telegram("output.mp4")
+        # Отправка в Telegram
+        token = os.environ['TELEGRAM_BOT_TOKEN']
+        chat_id = os.environ['TELEGRAM_CHAT_ID']
+        url = f"https://api.telegram.org/bot{token}/sendVideo"
+        
+        with open("output.mp4", "rb") as video:
+            requests.post(url, data={"chat_id": chat_id}, files={"video": video})
+
+    except Exception as e:
+        token = os.environ['TELEGRAM_BOT_TOKEN']
+        chat_id = os.environ['TELEGRAM_CHAT_ID']
+        requests.post(f"https://api.telegram.org/bot{token}/sendMessage", data={"chat_id": chat_id, "text": f"Error: {str(e)}"})
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    run_task()
