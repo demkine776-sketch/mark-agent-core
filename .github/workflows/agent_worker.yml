@@ -22,5 +22,5 @@ jobs:
           if [ -f out.mp4 ]; then
             curl -s -X POST https://api.telegram.org/bot$T/sendVideo -F chat_id=$C -F video=@out.mp4
           else
-            curl -s -X POST https://api.telegram.org/bot$T/sendMessage -d chat_id=$C -d text="Worker failed: out.mp4 not found"
+            curl -s -X POST https://api.telegram.org/bot$T/sendMessage -d chat_id=$C --data-urlencode "text=Worker failed: out.mp4 not found"
           fi
