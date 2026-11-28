@@ -9,7 +9,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - run: pip install -q gTTS imageio-ffmpeg Pillow
+      - run: pip install -q gTTS imageio-ffmpeg Pillow gradio_client
       - env:
           TELEGRAM_BOT_TOKEN: ${{secrets.TELEGRAM_BOT_TOKEN}}
           TELEGRAM_CHAT_ID: ${{secrets.TELEGRAM_CHAT_ID}}
